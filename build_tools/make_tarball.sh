@@ -59,7 +59,7 @@ git archive --format=tar --prefix="$prefix"/ HEAD > "$path"
 PREFIX_TMPDIR=$(mktemp -d)
 cd "$PREFIX_TMPDIR"
 echo "$VERSION" > version
-cmake -G "$BUILD_GENERATOR" "$wd"
+cmake -G "$BUILD_GENERATOR" -DCMAKE_BUILD_TYPE=Debug "$wd"
 $BUILD_TOOL doc
 
 TAR_APPEND="$TAR --append --file=$path --mtime=now --owner=0 --group=0 \
@@ -67,11 +67,6 @@ TAR_APPEND="$TAR --append --file=$path --mtime=now --owner=0 --group=0 \
 $TAR_APPEND --no-recursion user_doc
 $TAR_APPEND user_doc/html user_doc/man
 $TAR_APPEND version
-
-if [ -n "$VENDOR_TARBALLS" ]; then
-  $BUILD_TOOL corrosion-vendor.tar.gz
-  mv corrosion-vendor.tar.gz ${FISH_ARTEFACT_PATH:-~/fish_built}/"${prefix}"_corrosion-vendor.tar.gz
-fi
 
 cd -
 rm -r "$PREFIX_TMPDIR"

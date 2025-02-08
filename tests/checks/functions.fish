@@ -9,6 +9,10 @@ end
 functions    --details f1 f2
 #CHECKERR: functions: --details: expected 1 arguments; got 2
 
+# Verify that it still mentions "--details" even if it isn't the last option.
+functions    --details --verbose f1 f2
+#CHECKERR: functions: --details: expected 1 arguments; got 2
+
 # ==========
 # Verify that `functions --details` works as expected when given the name of a
 # known function.
@@ -26,7 +30,7 @@ functions -D f2
 # function that could be autoloaded but isn't currently loaded.
 set x (functions -D vared)
 if test (count $x) -ne 1
-    or not string match -q '*/share/functions/vared.fish' "$x"
+    or not string match -rq '.*/share(/fish)?/functions/vared\.fish' "$x"
     echo "Unexpected output for 'functions -D vared': $x" >&2
 end
 
@@ -35,7 +39,7 @@ end
 # function that was autoloaded.
 set x (functions -v -D vared)
 if test (count $x) -ne 5
-    or not string match -q '*/share/functions/vared.fish' $x[1]
+    or not string match -rq '.*/share(/fish)?/functions/vared\.fish' $x[1]
     or test $x[2] != autoloaded
     or test $x[3] != 6
     or test $x[4] != scope-shadowing
@@ -166,8 +170,62 @@ functions --no-details t2
 functions --no-details --details t
 # CHECKERR: functions: invalid option combination
 # CHECKERR:
-# CHECKERR: checks/functions.fish (line {{\d+}}):
+# CHECKERR: {{.*}}checks/functions.fish (line {{\d+}}):
 # CHECKERR: functions --no-details --details t
 # CHECKERR: ^
 # CHECKERR: (Type 'help functions' for related documentation)
 # XXX FIXME ^ caret should point at --no-details --details
+
+function term1 --on-signal TERM
+end
+function term2 --on-signal TERM
+end
+function term3 --on-signal TERM
+end
+
+functions --handlers-type signal
+# CHECK: Event signal
+# CHECK: SIGTRAP fish_sigtrap_handler
+# CHECK: SIGTERM term1
+# CHECK: SIGTERM term2
+# CHECK: SIGTERM term3
+
+# See how --names and --all work.
+# We don't want to list all of our functions here,
+# so we just match a few that we know are there.
+functions -n | string match cd
+# CHECK: cd
+
+functions --names | string match __fish_config_interactive
+echo $status
+# CHECK: 1
+
+functions --names -a | string match __fish_config_interactive
+# CHECK: __fish_config_interactive
+
+functions --description ""
+# CHECKERR: functions: Expected exactly one function name
+# CHECKERR: {{.*}}checks/functions.fish (line {{\d+}}):
+# CHECKERR: functions --description ""
+# CHECKERR: ^
+# CHECKERR: (Type 'help functions' for related documentation)
+
+function foo --on-variable foo; end
+# This should print *everything*
+functions --handlers-type "" | string match 'Event *'
+# CHECK: Event signal
+# CHECK: Event variable
+# CHECK: Event generic
+functions -e foo
+
+functions --details --verbose thisfunctiondoesnotexist
+# CHECK: n/a
+# CHECK: n/a
+# CHECK: 0
+# CHECK: n/a
+# CHECK: n/a
+
+functions --banana
+# CHECKERR: functions: --banana: unknown option
+echo $status
+# CHECK: 2

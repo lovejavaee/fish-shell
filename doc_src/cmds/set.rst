@@ -9,12 +9,13 @@ Synopsis
 .. synopsis::
 
     set
-    set (-f | --function) (-l | local) (-g | --global) (-U | --universal)
+    set (-f | --function) (-l | --local) (-g | --global) (-U | --universal) [--no-event]
     set [-Uflg] NAME [VALUE ...]
     set [-Uflg] NAME[[INDEX ...]] [VALUE ...]
-    set (-a | --append) [-flgU] NAME VALUE ...
-    set (-q | --query) (-e | --erase) [-flgU] [NAME][[INDEX]] ...]
-    set (-S | --show) [NAME ...]
+    set (-x | --export) (-u | --unexport) [-Uflg] NAME [VALUE ...]
+    set (-a | --append) (-p | --prepend) [-Uflg] NAME VALUE ...
+    set (-q | --query) (-e | --erase) [-Uflg] [NAME][[INDEX]] ...]
+    set (-S | --show) (-L | --long) [NAME ...]
 
 Description
 -----------
@@ -25,7 +26,7 @@ If both *NAME* and *VALUE* are provided, ``set`` assigns any values to variable 
 Variables in fish are :ref:`lists <variables-lists>`, multiple values are allowed.
 One or more variable *INDEX* can be specified including ranges (not for all options.)
 
-If no *VALUE* is given, the variable will be set to the empty list i.e. ``''``.
+If no *VALUE* is given, the variable will be set to the empty list.
 
 If ``set`` is ran without arguments, it prints the names and values of all shell variables in sorted order.
 Passing :ref:`scope <variables-scope>` or :ref:`export <variables-export>` flags allows filtering this to only matching variables, so ``set --local`` would only show local variables.
@@ -34,11 +35,11 @@ With ``--erase`` and optionally a scope flag ``set`` will erase the matching var
 
 With ``--show``, ``set`` will describe the given variable names, explaining how they have been defined - in which scope with which values and options.
 
-The following scope control variable scope:
+The following options control variable scope:
 
 **-U** or **--universal**
     Sets a universal variable.
-    The variable will be immediately available to all the user's ``fish`` instances on the machine, and will be persist across restarts of the shell.
+    The variable will be immediately available to all the user's ``fish`` instances on the machine, and will be persisted across restarts of the shell.
 
 **-f** or **--function**
     Sets a variable scoped to the executing function.
@@ -63,7 +64,7 @@ These options modify how variables operate:
     Causes the specified shell variable to NOT be exported to child processes.
 
 **--path**
-    Treat specified variable as a :ref:`path variable <variables-path>`; variable will be split on colons (``:``) and will be displayed joined by colons colons when quoted (``echo "$PATH"``) or exported.
+    Treat specified variable as a :ref:`path variable <variables-path>`; variable will be split on colons (``:``) and will be displayed joined by colons when quoted (``echo "$PATH"``) or exported.
 
 **--unpath**
      Causes variable to no longer be treated as a :ref:`path variable <variables-path>`.
@@ -81,12 +82,12 @@ Further options:
     This can be used with **--append** to both append and prepend at the same time.
     This cannot be used when assigning to a variable slice.
 
-**-e** or **--erase** *NAME*[*INDEX*]
+**-e** or **--erase** *NAME*\[*INDEX*\]
     Causes the specified shell variables to be erased.
     Supports erasing from multiple scopes at once.
     Individual items in a variable at *INDEX* in brackets can be specified.
 
-**-q** or **--query** *NAME*[*INDEX*]
+**-q** or **--query** *NAME*\[*INDEX*\]
     Test if the specified variable names are defined.
     If an *INDEX* is provided, check for items at that slot.
     Does not output anything, but the shell status is set to the number of variables specified that were not defined, up to a maximum of 255.
@@ -101,6 +102,11 @@ Further options:
     If no variable names are given then all variables are shown in sorted order.
     It shows the scopes the given variables are set in, along with the values in each and whether or not it is exported.
     No other flags can be used with this option.
+
+**--no-event**
+    Don't generate a variable change event when setting or erasing a variable.
+    We recommend using this carefully because the event handlers are usually set up for a reason.
+    Possible uses include modifying the variable inside a variable handler.
 
 **-L** or **--long**
     Do not abbreviate long values when printing set variables.

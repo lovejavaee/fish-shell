@@ -17,14 +17,23 @@ Description
 .. only:: builder_man
 
           NOTE: This page documents the fish builtin ``test``.
-          To see the documentation on the ``test`` command you might have,
-          use ``command man test``.
+          To see the documentation on any non-fish versions, use ``command man test``.
 
 ``test`` checks the given conditions and sets the exit status to 0 if they are true, 1 if they are false.
 
 The first form (``test``) is preferred. For compatibility with other shells, the second form is available: a matching pair of square brackets (``[ [EXPRESSION] ]``).
 
-When using a variable as an argument with ``test`` you should almost always enclose it in double-quotes, as variables expanding to zero or more than one argument will most likely interact badly with ``test``.
+When using a variable or command substitution as an argument with ``test`` you should almost always enclose it in double-quotes, as variables expanding to zero or more than one argument will most likely interact badly with ``test``.
+
+.. warning::
+
+          For historical reasons, ``test`` supports the one-argument form (``test foo``), and this will also be triggered by e.g. ``test -n $foo`` if $foo is unset. We recommend you don't use the one-argument form and quote all variables or command substitutions used with ``test``.
+
+          This confusing misfeature will be removed in future. ``test -n`` without any additional argument will be false, ``test -z`` will be true and any other invocation with exactly one or zero arguments, including ``test -d`` and ``test "foo"`` will be an error.
+
+          The same goes for ``[``, e.g. ``[ "foo" ]`` and ``[ -d ]`` will be errors.
+
+          This can be turned on already via the ``test-require-arg`` :ref:`feature flag <featureflags>`, and will eventually become the default and then only option.
 
 Operators for files and directories
 -----------------------------------
@@ -152,7 +161,7 @@ Expressions can be grouped using parentheses.
 **(** *EXPRESSION* **)**
      Returns the value of *EXPRESSION*.
 
-Note that parentheses will usually require escaping with ``\(`` to avoid being interpreted as a command substitution.
+Note that parentheses will usually require escaping with ``\`` (so they appear as ``\(`` and ``\)``) to avoid being interpreted as a command substitution.
 
 
 Examples
@@ -175,6 +184,15 @@ If the variable :envvar:`MANPATH` is defined and not empty, print the contents. 
         echo $MANPATH
     end
 
+Be careful with unquoted variables::
+
+    if test -n $MANPATH
+        # This will also be reached if $MANPATH is unset,
+        # because in that case we have `test -n`, so it checks if "-n" is non-empty, and it is.
+        echo $MANPATH
+    end
+
+This will change in a future release of fish, or already with the ``test-require-arg`` :ref:`feature flag <featureflags>` - if $MANPATH is unset, ``if test -n $MANPATH`` will be false.
 
 Parentheses and the ``-o`` and ``-a`` operators can be combined to produce more complicated expressions. In this example, success is printed if there is a ``/foo`` or ``/bar`` file as well as a ``/baz`` or ``/bat`` file.
 
@@ -222,9 +240,10 @@ which is logically equivalent to the following:
 Standards
 ---------
 
-Unlike many things in fish, ``test`` implements a subset of the `IEEE Std 1003.1-2008 (POSIX.1) standard <https://www.unix.com/man-page/posix/1p/test/>`__. The following exceptions apply:
+Unlike many things in fish, ``test`` implements a subset of the `IEEE Std 1003.1-2008 (POSIX.1) standard <https://pubs.opengroup.org/onlinepubs/9699919799/utilities/test.html>`__. The following exceptions apply:
 
 - The ``<`` and ``>`` operators for comparing strings are not implemented.
+- With ``test-require-arg``, the zero- and one-argument modes will behave differently.
 
  In cases such as this, one can use ``command`` ``test`` to explicitly use the system's standalone ``test`` rather than this ``builtin`` ``test``.
 

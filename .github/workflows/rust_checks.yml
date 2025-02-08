@@ -11,32 +11,31 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: SetupRust
-      uses: ATiltedTree/setup-rust@v1
-      with:
-        rust-version: stable
+    - uses: dtolnay/rust-toolchain@stable
     - name: cargo fmt
-      run: |
-        cd fish-rust
-        cargo fmt --check --all
+      run: cargo fmt --check --all
 
   clippy:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
-    - name: SetupRust
-      uses: ATiltedTree/setup-rust@v1
-      with:
-        rust-version: stable
+    - uses: dtolnay/rust-toolchain@stable
     - name: Install deps
       run: |
-        sudo apt install gettext libncurses5-dev libpcre2-dev python3-pip tmux
-        sudo pip3 install pexpect
+        sudo apt install gettext libpcre2-dev
     - name: cmake
       run: |
         cmake -B build
     - name: cargo clippy
-      run: |
-        cd fish-rust
-        cargo clippy --workspace --all-targets -- --deny=warnings
+      # This used to have --deny=warnings, but that turns rust release day
+      # into automatic CI failure day, so we don't do that.
+      run: cargo clippy --workspace --all-targets
+
+  # Disabling for now because it also checks "advisories",
+  # making CI fail for reasons unrelated to the patch
+  # cargo-deny:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   - uses: EmbarkStudios/cargo-deny-action@v1

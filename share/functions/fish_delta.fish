@@ -49,7 +49,7 @@ function fish_delta
         end
         # We don't care about generated completions.
         # They shouldn't be compared at all.
-        contains -- $dir $default_complete_path $__fish_user_data_dir/generated_completions
+        contains -- $dir $default_complete_path $__fish_cache_dir/generated_completions
         or set -a user_complete_path $dir
     end
 
@@ -70,9 +70,9 @@ function fish_delta
 
     if isatty stdout
         set -f colors "$(set_color normal)" "$(set_color brblue)" "$(set_color bryellow)" "$(set_color green)" "$(set_color red)"
-        set -f pager less
-        set -q PAGER
-        and echo $PAGER | read -at pager
+        set -f pager (__fish_anypager)
+        or set pager cat
+
         if type -q less
             set -l lessopts isRF
             if test (less --version | string match -r 'less (\d+)')[2] -lt 530 2>/dev/null

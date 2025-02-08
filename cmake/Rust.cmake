@@ -1,69 +1,63 @@
-if(EXISTS "${CMAKE_SOURCE_DIR}/corrosion-vendor/")
-    add_subdirectory("${CMAKE_SOURCE_DIR}/corrosion-vendor/")
-else()
-    include(FetchContent)
+# Trying to build using the resolved toolchain causes all kinds of weird errors
+# Just let rustup do its job
+set(Rust_RESOLVE_RUSTUP_TOOLCHAINS Off)
 
-    # Don't let Corrosion's tests interfere with ours.
-    set(CORROSION_TESTS OFF CACHE BOOL "" FORCE)
+include(FindRust)
+find_package(Rust REQUIRED)
 
-    FetchContent_Declare(
-        Corrosion
-        GIT_REPOSITORY https://github.com/mqudsi/corrosion
-        GIT_TAG fish
-    )
+set(FISH_RUST_BUILD_DIR "${CMAKE_BINARY_DIR}/cargo/build")
 
-    FetchContent_MakeAvailable(Corrosion)
-
-    add_custom_target(corrosion-vendor.tar.gz
-        COMMAND git archive --format tar.gz --output "${CMAKE_BINARY_DIR}/corrosion-vendor.tar.gz"
-        --prefix corrosion-vendor/ HEAD
-        WORKING_DIRECTORY ${corrosion_SOURCE_DIR}
-    )
-endif()
-
-set(fish_rust_target "fish-rust")
-
-set(fish_autocxx_gen_dir "${CMAKE_BINARY_DIR}/fish-autocxx-gen/")
-
-if(NOT DEFINED CARGO_FLAGS)
-    # Corrosion doesn't like an empty string as FLAGS. This is basically a no-op alternative.
-    # See https://github.com/corrosion-rs/corrosion/issues/356
-    set(CARGO_FLAGS "--config" "foo=0")
-endif()
 if(DEFINED ASAN)
     list(APPEND CARGO_FLAGS "-Z" "build-std")
+    list(APPEND FISH_CRATE_FEATURES "asan")
+endif()
+if(DEFINED TSAN)
+    list(APPEND CARGO_FLAGS "-Z" "build-std")
+    list(APPEND FISH_CRATE_FEATURES "tsan")
 endif()
 
-corrosion_import_crate(
-    MANIFEST_PATH "${CMAKE_SOURCE_DIR}/fish-rust/Cargo.toml"
-    FEATURES "fish-ffi-tests"
-    FLAGS "${CARGO_FLAGS}"
-)
-
-# We need the build dir because cxx puts our headers in there.
-# Corrosion doesn't expose the build dir, so poke where we shouldn't.
 if (Rust_CARGO_TARGET)
-    set(rust_target_dir "${CMAKE_BINARY_DIR}/cargo/build/${_CORROSION_RUST_CARGO_TARGET}")
+    set(rust_target_dir "${FISH_RUST_BUILD_DIR}/${Rust_CARGO_TARGET}")
 else()
-    set(rust_target_dir "${CMAKE_BINARY_DIR}/cargo/build/${_CORROSION_RUST_CARGO_HOST_TARGET}")
-    corrosion_set_hostbuild(${fish_rust_target})
+    set(rust_target_dir "${FISH_RUST_BUILD_DIR}/${Rust_CARGO_HOST_TARGET}")
 endif()
 
-# Tell Cargo where our build directory is so it can find config.h.
-corrosion_set_env_vars(${fish_rust_target} "FISH_BUILD_DIR=${CMAKE_BINARY_DIR}" "FISH_AUTOCXX_GEN_DIR=${fish_autocxx_gen_dir}" "FISH_RUST_TARGET_DIR=${rust_target_dir}")
+set(rust_profile $<IF:$<CONFIG:Debug>,debug,$<IF:$<CONFIG:RelWithDebInfo>,release-with-debug,release>>)
+set(rust_debugflags "$<$<CONFIG:Debug>:-g>$<$<CONFIG:RelWithDebInfo>:-g>")
 
-target_include_directories(${fish_rust_target} INTERFACE
-    "${rust_target_dir}/cxxbridge/${fish_rust_target}/src/"
-    "${fish_autocxx_gen_dir}/include/"
+
+# Temporary hack to propagate CMake flags/options to build.rs. We need to get CMake to evaluate the
+# truthiness of the strings if they are set.
+set(CMAKE_WITH_GETTEXT "1")
+if(DEFINED WITH_GETTEXT AND NOT "${WITH_GETTEXT}")
+    set(CMAKE_WITH_GETTEXT "0")
+endif()
+
+if(FISH_CRATE_FEATURES)
+    set(FEATURES_ARG ${FISH_CRATE_FEATURES})
+    list(PREPEND FEATURES_ARG "--features")
+endif()
+
+get_property(
+    RUSTC_EXECUTABLE
+    TARGET Rust::Rustc PROPERTY IMPORTED_LOCATION
 )
 
-# Tell fish what extra C++ files to compile.
-define_property(
-    TARGET PROPERTY fish_extra_cpp_files
-    BRIEF_DOCS "Extra C++ files to compile for fish."
-    FULL_DOCS "Extra C++ files to compile for fish."
-)
-
-set_property(TARGET ${fish_rust_target} PROPERTY fish_extra_cpp_files
-    "${fish_autocxx_gen_dir}/cxx/gen0.cxx"
+# Tell Cargo where our build directory is so it can find Cargo.toml.
+set(VARS_FOR_CARGO
+    "FISH_BUILD_DIR=${CMAKE_BINARY_DIR}"
+    "PREFIX=${CMAKE_INSTALL_PREFIX}"
+    # Temporary hack to propagate CMake flags/options to build.rs.
+    "CMAKE_WITH_GETTEXT=${CMAKE_WITH_GETTEXT}"
+    # Cheesy so we can tell cmake was used to build
+    "CMAKE=1"
+    "DOCDIR=${CMAKE_INSTALL_FULL_DOCDIR}"
+    "DATADIR=${CMAKE_INSTALL_FULL_DATADIR}"
+    "SYSCONFDIR=${CMAKE_INSTALL_FULL_SYSCONFDIR}"
+    "BINDIR=${CMAKE_INSTALL_FULL_BINDIR}"
+    "LOCALEDIR=${CMAKE_INSTALL_FULL_LOCALEDIR}"
+    "CARGO_TARGET_DIR=${FISH_RUST_BUILD_DIR}"
+    "CARGO_BUILD_RUSTC=${RUSTC_EXECUTABLE}"
+    "${FISH_PCRE2_BUILDFLAG}"
+    "RUSTFLAGS=$ENV{RUSTFLAGS} ${rust_debugflags}"
 )

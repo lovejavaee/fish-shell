@@ -147,3 +147,10 @@ echo
 printf --help
 echo
 # CHECK: --help
+
+# This is how mc likes to encode the directory we should cd to.
+printf '%b\n' '\0057foo\0057bar\0057'
+# CHECK: /foo/bar/
+
+printf %18446744073709551616s
+# CHECKERR: Number out of range

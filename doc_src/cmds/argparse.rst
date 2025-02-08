@@ -32,6 +32,7 @@ The following ``argparse`` options are available. They must appear before all *O
 
 **-x** or **--exclusive** *OPTIONS*
     A comma separated list of options that are mutually exclusive. You can use this more than once to define multiple sets of mutually exclusive options.
+    You give either the short or long version of each option, and you still need to otherwise define the options.
 
 **-N** or **--min-args** *NUMBER*
     The minimum number of acceptable non-option arguments. The default is zero.
@@ -57,12 +58,27 @@ To use this command, pass the option specifications (**OPTION_SPEC**), a mandato
 
 A simple example::
 
-    argparse --name=my_function 'h/help' 'n/name=' -- $argv
+    argparse 'h/help' 'n/name=' -- $argv
     or return
 
-If ``$argv`` is empty then there is nothing to parse and ``argparse`` returns zero to indicate success. If ``$argv`` is not empty then it is checked for flags ``-h``, ``--help``, ``-n`` and ``--name``. If they are found they are removed from the arguments and local variables called ``_flag_OPTION`` are set so the script can determine which options were seen. If ``$argv`` doesn't have any errors, like a missing mandatory value for an option, then ``argparse`` exits with a status of zero. Otherwise it writes appropriate error messages to stderr and exits with a status of one.
+If ``$argv`` is empty then there is nothing to parse and ``argparse`` returns zero to indicate success. If ``$argv`` is not empty then it is checked for flags ``-h``, ``--help``, ``-n`` and ``--name``. If they are found they are removed from the arguments and local variables called ``_flag_OPTION`` are set so the script can determine which options were seen. If ``$argv`` doesn't have any errors, like an unknown option or a missing mandatory value for an option, then ``argparse`` exits with a status of zero. Otherwise it writes appropriate error messages to stderr and exits with a status of one.
 
 The ``or return`` means that the function returns ``argparse``'s status if it failed, so if it goes on ``argparse`` succeeded.
+
+To use the flags argparse has extracted::
+
+    # Checking for _flag_h and _flag_help is equivalent
+    # We check if it has been given at least once
+    if set -ql _flag_h
+        echo "Usage: my_function [-h | --help] [-n | --name=NAME]" >&2
+        return 1
+    end
+
+    set -l myname somedefault
+    set -ql _flag_name[1]
+    and set myname $_flag_name[-1] # here we use the *last* --name=
+
+Any characters in the flag name that are not valid in a variable name (like ``-`` dashes) will be replaced with underscores.
 
 The ``--`` argument is required. You do not have to include any option specifications or arguments after the ``--`` but you must include the ``--``. For example, this is acceptable::
 
@@ -204,6 +220,44 @@ Some *OPTION_SPEC* examples:
 After parsing the arguments the ``argv`` variable is set with local scope to any values not already consumed during flag processing. If there are no unbound values the variable is set but ``count $argv`` will be zero.
 
 If an error occurs during argparse processing it will exit with a non-zero status and print error messages to stderr.
+
+Examples
+---------
+
+A simple use::
+
+    argparse h/help -- $argv
+    or return
+
+    if set -q _flag_help
+        # TODO: Print help here
+        return 0
+    end
+
+This just wants one option - ``-h`` / ``--help``. Any other option is an error. If it is given it prints help and exits.
+
+How :doc:`fish_add_path` parses its args::
+
+  argparse -x g,U -x P,U -x a,p g/global U/universal P/path p/prepend a/append h/help m/move v/verbose n/dry-run -- $argv
+
+There are a variety of boolean flags, all with long and short versions. A few of these cannot be used together, and that is what the ``-x`` flag is used for.
+``-x g,U`` means that ``--global`` and ``--universal`` or their short equivalents conflict, and if they are used together you get an error.
+In this case you only need to give the short or long flag, not the full option specification.
+
+After this it figures out which variable it should operate on according to the ``--path`` flag::
+
+    set -l var fish_user_paths
+    set -q _flag_path
+    and set var PATH
+
+    # ...
+
+    # Check for --dry-run.
+    # The "-" has been replaced with a "_" because
+    # it is not valid in a variable name
+    not set -ql _flag_dry_run
+    and set $var $result
+
 
 Limitations
 -----------

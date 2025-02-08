@@ -31,7 +31,7 @@ echo $status
 # Test that we print a command path
 type sh
 # (we resolve the path, so if /bin is a symlink to /usr/bin this shows /usr/bin/sh)
-# CHECK: sh is {{.*}}/bin/sh
+# CHECK: sh is {{.*}}/sh
 
 # Test that we print a function definition.
 # The exact definition and description here depends on the system, so we'll ignore the actual code.
@@ -134,3 +134,9 @@ type -p other-test-type3
 
 type -s other-test-type3
 # CHECK: other-test-type3 is a function (Defined via `source`, copied via `source`)
+
+touch ./test
+chmod +x ./test
+
+PATH=.:$PATH type -P test
+# CHECK: ./test

@@ -108,16 +108,16 @@ test "$name3[3..-1]" = "$name3a[3..-1]"; and echo "3 = 3a"
 # Test the first two lines.
 string join \n -- $name1[1..2]
 #CHECK: # Defined in {{(?:(?!, copied).)*}}
-#CHECK: function name1 --argument arg1 arg2
+#CHECK: function name1 --argument-names arg1 --argument-names arg2
 string join \n -- $name1a[1..2]
 #CHECK: # Defined in {{.*}}, copied in {{.*}}
-#CHECK: function name1a --argument arg1 arg2
+#CHECK: function name1a --argument-names arg1 --argument-names arg2
 string join \n -- $name3[1..2]
 #CHECK: # Defined in {{(?:(?!, copied).)*}}
-#CHECK: function name3 --argument arg1 arg2
+#CHECK: function name3 --argument-names arg1 --argument-names arg2
 string join \n -- $name3a[1..2]
 #CHECK: # Defined in {{.*}}, copied in {{.*}}
-#CHECK: function name3a --argument arg1 arg2
+#CHECK: function name3a --argument-names arg1 --argument-names arg2
 
 function test
     echo banana
@@ -150,7 +150,10 @@ end
 # CHECK: disown
 # CHECK: fg
 # CHECK: fish_command_not_found
+# CHECK: fish_prompt
+# CHECK: fish_prompt_event
 # CHECK: fish_sigtrap_handler
+# CHECK: fish_title
 # CHECK: frob
 # CHECK: kill
 # CHECK: name1
@@ -161,5 +164,30 @@ end
 # CHECK: wait
 
 rm -r $tmpdir
+
+functions -e foo
+
+function foo -p bar; end
+# CHECKERR: {{.*}}function.fish (line {{\d+}}): function: bar: invalid process id
+# CHECKERR: function foo -p bar; end
+# CHECKERR: ^~~~~~~~~~~~~~~~~~~^
+
+function foo --argument-names "banana pajama"; end
+# CHECKERR: {{.*}}function.fish (line {{\d+}}): function: banana pajama: invalid variable name. See `help identifiers`
+# CHECKERR: function foo --argument-names "banana pajama"; end
+# CHECKERR: ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+
+
+function foo --argument-names status; end
+# CHECKERR: {{.*}}function.fish (line {{\d+}}): function: variable 'status' is read-only
+# CHECKERR: function foo --argument-names status; end
+# CHECKERR: ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+
+echo status $status
+# CHECK: status 2
+
+functions -q foo
+echo exists $status
+# CHECK: exists 1
 
 exit 0
